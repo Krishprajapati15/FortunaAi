@@ -1,0 +1,272 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String   @id @default(uuid())
+  email             String   @unique
+  firebaseUid       String   @unique
+  name              String?
+  phoneNumber       String?
+  preferredLanguage String   @default("en") // For multi-language support
+  profileCompleted  Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  financialProfile  FinancialProfile?
+  investments       Investment[]
+  transactions      Transaction[]
+  documents         Document[]
+  educationProgress EducationProgress[]
+  insights          Insight[]
+  goals             FinancialGoal[]
+  notifications     Notification[]
+}
+
+model FinancialProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Income details
+  monthlyIncome    Float?
+  additionalIncome Float?
+  incomeSource     String?
+
+  // Expense details
+  monthlyExpenses       Float?
+  housingExpense        Float?
+  transportationExpense Float?
+  foodExpense           Float?
+  utilitiesExpense      Float?
+  entertainmentExpense  Float?
+  otherExpenses         Float?
+
+  // Savings and debt
+  monthlySavings Float?
+  totalSavings   Float?
+  totalDebt      Float?
+
+  // Investment profile
+  riskTolerance     String? // Low, Medium, High
+  investmentHorizon String? // Short-term, Medium-term, Long-term
+  investmentGoals   String?
+
+  // Tax information
+  taxBracket      String?
+  taxFilingStatus String? // Single, Married, etc.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Investment {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type          String // Stocks, Mutual Funds, Bonds, Real Estate, etc.
+  name          String
+  ticker        String?
+  amount        Float // Initial investment amount
+  units         Float? // Number of units/shares
+  purchasePrice Float? // Price per unit at purchase
+  purchaseDate  DateTime
+  currentValue  Float?
+  currentPrice  Float? // Current price per unit
+  lastUpdated   DateTime @default(now())
+  notes         String?
+
+  // For mutual funds and stocks
+  sector     String?
+  assetClass String?
+
+  // Performance metrics
+  returnPercentage Float?
+  dividends        Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Transaction {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  amount      Float
+  type        String // Income, Expense, Transfer, Investment
+  category    String // Housing, Food, Transportation, etc.
+  subcategory String?
+  description String?
+  date        DateTime
+  recurring   Boolean  @default(false)
+  frequency   String? // Daily, Weekly, Monthly, etc. (if recurring)
+
+  // For expense tracking
+  paymentMethod String?
+
+  // For income tracking
+  source String?
+
+  // For investment transactions
+  investmentId String?
+
+  // For document association
+  documentId String?
+  document   Document? @relation(fields: [documentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Document {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type         String // Receipt, Bank Statement, Investment Statement, Tax Document
+  name         String
+  fileUrl      String
+  thumbnailUrl String?
+  mimeType     String
+  size         Int // File size in bytes
+
+  // OCR and AI extraction data
+  extractedData    Json?
+  processingStatus String // Pending, Processing, Completed, Failed
+
+  uploadDate   DateTime      @default(now())
+  transactions Transaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EducationModule {
+  id          String  @id @default(uuid())
+  title       String
+  description String
+  content     String  @db.Text
+  level       String // Beginner, Intermediate, Advanced
+  category    String // Investing, Taxes, Savings, Debt Management
+  duration    Int // Estimated minutes to complete
+  imageUrl    String?
+  videoUrl    String?
+
+  // For multi-language support
+  translations Json? // {language_code: {title, description, content}}
+
+  // Quiz questions
+  quizQuestions Json?
+
+  progress  EducationProgress[]
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+}
+
+model EducationProgress {
+  id       String          @id @default(uuid())
+  userId   String
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moduleId String
+  module   EducationModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  completed    Boolean   @default(false)
+  progress     Float     @default(0) // 0-100%
+  quizScore    Int? // Score if quiz was taken
+  lastAccessed DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, moduleId])
+}
+
+model Insight {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        String // Spending, Saving, Investment, Tax, Cash Flow
+  title       String
+  description String  @db.Text
+  severity    String // Info, Warning, Critical
+  actionable  Boolean @default(true)
+  actionTaken Boolean @default(false)
+
+  // AI-generated data
+  data Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FinancialGoal {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name          String
+  description   String?
+  targetAmount  Float
+  currentAmount Float     @default(0)
+  targetDate    DateTime?
+  category      String // Retirement, Education, Home, Emergency Fund, etc.
+  priority      String // Low, Medium, High
+  status        String // Not Started, In Progress, Completed
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title     String
+  message   String
+  type      String // Alert, Reminder, Insight, Goal
+  read      Boolean @default(false)
+  actionUrl String? // Deep link to relevant screen
+
+  createdAt DateTime @default(now())
+}
+
+model CashFlowForecast {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  // Monthly forecasts for the next 6 months
+  forecastData Json
+
+  // AI-generated insights about the forecast
+  insights String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TaxEstimate {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  taxYear         Int
+  estimatedIncome Float
+  estimatedTax    Float
+  deductions      Json?
+  credits         Json?
+
+  // AI-generated tax optimization suggestions
+  taxSavingTips String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
